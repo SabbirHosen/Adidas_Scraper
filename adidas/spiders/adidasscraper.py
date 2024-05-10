@@ -117,19 +117,28 @@ class AdidasscraperSpider(scrapy.Spider):
                 await page.mouse.wheel(0, 1500)
                 time.sleep(2)
             time.sleep(10)
+            style_before = await page.evaluate(
+                '(function() { return window.getComputedStyle(document.querySelector(".articlePrice .price-text .price-value"), ":before").getPropertyValue("content"); })()')
+            style_after = await page.evaluate(
+                '(function() { return window.getComputedStyle(document.querySelector(".articlePrice .price-text .price-value"), ":after").getPropertyValue("content"); })()')
+            # Now apply the pseudo-element content to the extracted text
+
 
             page_content = await page.content()
-            with open("details.html", "w") as f:
-                f.write(page_content)
+            # with open("details.html", "w") as f:
+            #     f.write(page_content)
 
             content = scrapy.Selector(text=page_content)
 
             text = content.css("script#__NEXT_DATA__::text").get()
+            price_value = response.css('.price-value::text').get()
+            price_value_with_pseudo = f"{style_before.strip()} {price_value.strip()} {style_after.strip()}"
             print("*" * 100)
+            print("Price value with pseudo-elements:", price_value_with_pseudo)
             print(text)
             print("*" * 100)
-            with open(f"data.txt", "w") as text_file:
-                text_file.write(text)
+            # with open(f"data.txt", "w") as text_file:
+            #     text_file.write(text)
 
 
         except Exception as e:

@@ -42,7 +42,7 @@ def extract_size_chart(size_table):
 
 with open("details.html", "r") as f:
     content = Selector(text=f.read())
-# print(content.css("script#__NEXT_DATA__::text").get())
+print(content.css("script#__NEXT_DATA__::text").get())
 
 breadcrumb_div = content.css("div.breadcrumb_wrap")
 print("Breadcrumb")
@@ -51,6 +51,17 @@ print(extract_breadcrumbs(breadcrumb_div=breadcrumb_div))
 image_content_div = content.css("div.pdp_article_image")
 print(extract_image_urls(image_div=image_content_div))
 
-chart = content.css("div.sizeChart")
-print(chart)
-extract_size_chart(size_table=chart)
+# chart = content.css("div.sizeChart")
+# print(chart)
+# extract_size_chart(size_table=chart)
+category = " ".join(content.css("a.groupName span::text").getall())
+print("category", category)
+title = content.css("div.articleInformation h1.itemTitle::text").get()
+print("title", title)
+price = content.css("div.articlePrice ::text").get()
+print("price", price)
+available_size = content.css("ul.sizeSelectorList li button::text").getall()
+print("available_size", available_size)
+
+description_title = content.css("div.js-componentsTabTarget h4::text").get()
+print("description_title", description_title)
