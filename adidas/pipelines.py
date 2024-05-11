@@ -35,6 +35,7 @@ class ExcelWriterPipeline:
             'Breadcrumbs': item['breadcrumbs'],
             'Image URLs': item['image_urls'],
             'sense_of_the_size': item['sense_of_the_size'],
+            'special_function': item['special_function'],
         }
         self.product_data.append(product_data)
 

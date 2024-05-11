@@ -25,3 +25,4 @@ class AdidasProductItem(scrapy.Item):
     reviews = scrapy.Field()
     product_ratings = scrapy.Field()
     sense_of_the_size = scrapy.Field()
+    special_function = scrapy.Field()

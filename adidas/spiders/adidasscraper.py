@@ -14,6 +14,13 @@ user_agent_list = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363',
 ]
 
+# To prevent websites from detecting and blocking bot scraping activities, I have generated fake headers.
+# These headers mimic those of legitimate web browsers. Additionally, we can use various techniques
+# such as proxy IPs, throttling, etc., to further obfuscate our bot's behavior. Throttling ensures
+# that concurrent requests are made at a human-like pace, preventing the server from detecting
+# abnormal traffic patterns. I also try to simulate human-like behavior by incorporating mouse movements.
+# Furthermore, if proxies are available, they can be employed to route requests through different
+# IP addresses, adding another layer of disguise to our scraping activity.
 fake_browser_header = {
     # "upgrade-insecure-requests": "1",
     "user-agent": random.choice(user_agent_list),
@@ -34,84 +41,55 @@ class AdidasscraperSpider(scrapy.Spider):
     allowed_domains = ["shop.adidas.jp"]
     base_url = "https://shop.adidas.jp"
 
-    # start_urls = ["https://shop.adidas.jp/item/?gender=mens"]
-
     def start_requests(self):
-        url = "https://shop.adidas.jp/products/IX6440/"
-        # url = "https://shop.adidas.jp/item/?gender=mens&order=1&category=wear"
+        url = "https://shop.adidas.jp/item/?gender=mens&order=1&category=wear"
 
-        # meta_data = {
-        #     'playwright': True,
-        #     'playwright_include_page': True,
-        #     'playwright_page_methods': [
-        #         PageMethod("wait_for_selector", "div.pageSelector"),
-        #     ],
-        #     'errback': self.errback,
-        # }
         meta_data = {
             'playwright': True,
             'playwright_include_page': True,
             'playwright_page_methods': [
-                PageMethod("wait_for_selector", "div.inner"),
-                PageMethod("evaluate", """
-                                                    async () => {
-                                                        await new Promise(resolve => {
-                                                            let totalHeight = 0;
-                                                            const distance = 50;
-                                                            const timer = setInterval(() => {
-                                                                const scrollHeight = document.body.scrollHeight;
-                                                                window.scrollBy(0, distance);
-                                                                totalHeight += distance;
-                                                                if (totalHeight >= scrollHeight) {
-                                                                    clearInterval(timer);
-                                                                    resolve();
-                                                                }
-                                                            }, 50);  // Adjust scrolling speed as needed
-                                                        });
-                                                    }
-                                                """),
-                PageMethod("wait_for_timeout", 20000)
+                PageMethod("wait_for_selector", "div.pageSelector"),
             ],
             'errback': self.errback,
         }
 
-        yield scrapy.Request(url, headers=fake_browser_header, callback=self.extract_product_information,
+        yield scrapy.Request(url, headers=fake_browser_header, callback=self.parse,
                              meta=meta_data)
 
     async def parse(self, response, **kwargs):
+        """
+
+        :param response:
+        :param kwargs:
+        :return:
+        """
         page = response.meta["playwright_page"]
         try:
-            time.sleep(2)
-            print("-" * 100)
-            print("Extracting pagination information")
-            # page = response.meta["playwright_page"]
+            time.sleep(random.randint(2, 4))
             page_content = await page.content()
             content = scrapy.Selector(text=page_content)
-            # cards = content.css("div.test-card a.image_link.test-image_link::attr(href)").getall()
 
             last_page_number = content.css("div.pageSelector li span.pageTotal::text").get()
-            print("pagination")
-            print(last_page_number)
+
             if last_page_number and last_page_number != "0" and last_page_number != "1":
                 for i in range(1, int(last_page_number)):
                     if i == 3:
                         break
                     next_page_url = f"{response.url}&page={i}"
-                    print("next page url: ", next_page_url)
+
                     yield scrapy.Request(next_page_url, callback=self.extract_items, meta=dict(
                         playwright=True,
                         playwright_include_page=True,
                         playwright_page_methods=[
                             PageMethod("wait_for_selector", "div.articleDisplay"),
                             # wait for 30 seconds
-                            PageMethod("wait_for_timeout", 10000)
+                            PageMethod("wait_for_timeout", 20000)
                         ],
                         errback=self.errback,
-                    )
-                                         )
+                    ))
             else:
                 yield self.extract_items(response=response)
-            print("-" * 100)
+            # print("-" * 100)
         except Exception as e:
             print(e)
         finally:
@@ -123,23 +101,24 @@ class AdidasscraperSpider(scrapy.Spider):
             'playwright_include_page': True,
             'playwright_page_methods': [
                 PageMethod("wait_for_selector", "div.inner"),
+                PageMethod("wait_for_timeout", 10000),
                 PageMethod("evaluate", """
-                                            async () => {
-                                                await new Promise(resolve => {
-                                                    let totalHeight = 0;
-                                                    const distance = 50;
-                                                    const timer = setInterval(() => {
-                                                        const scrollHeight = document.body.scrollHeight;
-                                                        window.scrollBy(0, distance);
-                                                        totalHeight += distance;
-                                                        if (totalHeight >= scrollHeight) {
-                                                            clearInterval(timer);
-                                                            resolve();
+                                                        async () => {
+                                                            await new Promise(resolve => {
+                                                                let totalHeight = 0;
+                                                                const distance = 10;
+                                                                const timer = setInterval(() => {
+                                                                    const scrollHeight = document.body.scrollHeight;
+                                                                    window.scrollBy(0, distance);
+                                                                    totalHeight += distance;
+                                                                    if (totalHeight >= scrollHeight) {
+                                                                        clearInterval(timer);
+                                                                        resolve();
+                                                                    }
+                                                                }, 100);  // Adjust scrolling speed as needed
+                                                            });
                                                         }
-                                                    }, 50);  // Adjust scrolling speed as needed
-                                                });
-                                            }
-                                        """),
+                                                    """),
                 PageMethod("wait_for_timeout", 20000)
             ],
             'errback': self.errback,
@@ -155,26 +134,14 @@ class AdidasscraperSpider(scrapy.Spider):
             page_content = await page.content()
             content = scrapy.Selector(text=page_content)
             cards = content.css("div.test-card a.image_link.test-image_link::attr(href)").getall()
-            print("*" * 100)
-            print(len(cards))
-            print("products url:", cards)
+
             for card in cards:
                 product_details_url = self.base_url + card
-                # print(product_details_url)
-                yield scrapy.Request(product_details_url, headers=fake_browser_header, callback=self.extract_product_information,
-                             meta=meta_data)
+
+                yield scrapy.Request(product_details_url, headers=fake_browser_header,
+                                     callback=self.extract_product_information,
+                                     meta=meta_data)
                 break
-
-            # last_page_number = content.css("div.pageSelector li span.pageTotal::text").get()
-            # print("pagination")
-            # print(last_page_number)
-            # if last_page_number and last_page_number != "0" and last_page_number != "1":
-            #     for i in range(1, int(last_page_number)):
-            #         next_page = f"{response.url}&page={i}"
-            #         print(next_page)
-            print("*" * 100)
-
-
         except Exception as e:
             print(e)
         finally:
@@ -187,19 +154,12 @@ class AdidasscraperSpider(scrapy.Spider):
         try:
             print("Items scarping for url {0}".format(response.url))
 
-            # Scrolling the page to load the all the elements properly
-            # for i in range(10):
-            #     await page.mouse.wheel(0, 700)
-            #     time.sleep(4)
-            # time.sleep(10)
-
             page_content = await page.content()
-            with open("detailsIS15401.html", "w") as f:
-                f.write(page_content)
+            # with open("detailsIS15401.html", "w") as f:
+            #     f.write(page_content)
             coordinate_info = await self.extract_coordinate(page=page)
 
             content = scrapy.Selector(text=page_content)
-            product_details_url = response.url
             image_urls = await self.extract_image_urls(response=content)
             breadcrumbs = await self.extract_breadcrumbs(response=content)
             product_category = " ".join(content.css("a.groupName span::text").getall())
@@ -224,60 +184,7 @@ class AdidasscraperSpider(scrapy.Spider):
             product_ratings = await self.extract_ratings(response=content)
             reviews = await self.extract_reviews(response=content)
             sense_of_the_size = await self.extract_sense_of_size(response=content)
-            print("*" * 100)
-            # print("Product details url: {0}".format(product_details_url))
-            # print("Breadcrumbs: {0}".format(breadcrumbs))
-            # print("image urls: {0}".format(image_urls))
-            # print("Product category: {0}".format(product_category))
-            # print("Product title: {0}".format(product_title))
-            # print("Price value:", product_price)
-            # print("Available size:", product_available_sizes)
-            # print("Coordinate value:", "\n", coordinate_info)
-            # print("description_title", description_title)
-            # print("general_description", general_description)
-            # print("item_description", item_description)
-            # print("size_chart", size_chart)
-            # print("rating", rating)
-            # print("number_of_review", number_of_review)
-            # print("product_ratings", product_ratings)
-            # print("recommendation_percentage", recommendation_percentage)
-            # print("reviews", reviews)
-            # product_details = {
-            #     "Product details url": response.url,
-            #     "Breadcrumbs": breadcrumbs,
-            #     "Image urls": image_urls,
-            #     "Product category": product_category,
-            #     "Product title": product_title,
-            #     "Price value": product_price,
-            #     "Available size": product_available_sizes,
-            #     "Coordinate value": coordinate_info,
-            #     "Description title": description_title,
-            #     "General description": general_description,
-            #     "Item description": item_description,
-            #     "Size chart": size_chart,
-            #     "Rating": rating,
-            #     "Number of reviews": number_of_review,
-            #     "Product ratings": product_ratings,
-            #     "Recommendation percentage": recommendation_percentage,
-            #     "Reviews": reviews
-            # }
-            #     "Product details url": response.url,
-            #     "Breadcrumbs": ,
-            #     "Image urls": ,
-            #     "Product category": ,
-            #     "Product title": ,
-            #     "Price value": ,
-            #     "Available size": ,
-            #     "Coordinate value": ,
-            #     "Description title": ,
-            #     "General description": ,
-            #     "Item description": ,
-            #     "Size chart": ,
-            #     "Rating": ,
-            #     "Number of reviews": ,
-            #     "Product ratings": ,
-            #     "Recommendation percentage": ,
-            #     "Reviews":
+            special_function = await self.special_function(response=content)
 
             item["product_url"] = response.url
             item["breadcrumbs"] = breadcrumbs
@@ -297,15 +204,9 @@ class AdidasscraperSpider(scrapy.Spider):
             item["reviews"] = reviews
             item["product_ratings"] = product_ratings
             item["sense_of_the_size"] = sense_of_the_size
-            # print(product_details)
-            # print(text)
-            # print(item.values())
-            print("*" * 100)
-            # with open(f"data.txt", "w") as text_file:
-            #     text_file.write(text)
+            item["special_function"] = special_function
+
             yield item
-
-
         except Exception as e:
             print(e)
         finally:
@@ -321,16 +222,11 @@ class AdidasscraperSpider(scrapy.Spider):
         style_after = await page.evaluate(
             '(function() { return window.getComputedStyle(document.querySelector(".articlePrice .price-text .price-value"), ":after").getPropertyValue("content"); })()')
         price_value = response.css('.price-value::text').get()
-        # Now apply the pseudo-element content to the extracted text
         price = "".join([style_before.strip(), price_value.strip(), style_after.strip()])
-        # price_value_with_pseudo = f"{style_before.strip()} {price_value.strip()} {style_after.strip()}"
         return price
 
     async def extract_coordinate(self, page):
-        # check_for_coordinate = div.coordinate_inner div.coordinate_box li
         coordinate_div = await page.query_selector('.coordinate_inner')
-        # print("*" * 100)
-        # print(coordinate_div)
         coordinate_items = []
 
         if coordinate_div:
@@ -344,11 +240,7 @@ class AdidasscraperSpider(scrapy.Spider):
                 page_content = await page.content()
                 content = scrapy.Selector(text=page_content)
                 cordinate_item_div = content.css("div.coordinate_inner div.coordinate_item_container")
-                # print("product link", cordinate_item_div.css("div.detail a::attr(href)").get())
-                # print("image link", cordinate_item_div.css("div.detail img::attr(src)").get())
-                # print("product title", cordinate_item_div.css("div.detail span.titleWrapper ::text").get())
-                # print("product price", cordinate_item_div.css("div.detail div.mdl-price ::text").get())
-                # print(content.css("div.coordinate_inner div.coordinate_item_container"))
+
                 product_link = f'{self.base_url}{cordinate_item_div.css("div.detail a::attr(href)").get().strip()}'
                 image_link = f'{self.base_url}{cordinate_item_div.css("div.detail img::attr(src)").get().strip()}'
                 coordinate_details = {
@@ -450,24 +342,16 @@ class AdidasscraperSpider(scrapy.Spider):
                 # Append cell data to row_data list
                 row_data.append(cells)
 
-            # Print or process the row data as needed
-            # print("row_data", row_data)
-            # print(row_data)
             # Initialize an empty dictionary to store the combined data
             combined_data = {}
             sizes = row_data[0]
             measurements = [data for data in zip(*row_data[1:])]
-            # print(sizes, measurements)
             # Iterate over both lists simultaneously
             for size, measurement in zip(sizes, measurements):
                 temp = {}
                 for index, measurement_type in enumerate(measurement_types):
                     temp[measurement_type] = measurement[index]
                 combined_data[size] = temp
-
-            # Convert the combined data to JSON format
-            # json_data = json.dumps(combined_data, indent=4, ensure_ascii=False)
-            # print(json_data)
             return combined_data
         except Exception as e:
             print(e)
@@ -494,3 +378,53 @@ class AdidasscraperSpider(scrapy.Spider):
                     "rating": rating
                 }
                 return sense_of_the_size
+
+    async def special_function(self, response):
+        features_function = []
+        image_links_seen = set()  # Set to store unique image links
+        if response.css('.css-j2pp63'):
+            try:
+                # If the element is present, grab the text and link
+                title = response.css('.css-j2pp63 h3.title::text').get()
+                link = response.css('.css-j2pp63 div.contents div.content a.tecTextTitle::attr(href)').get()
+                text = response.css('.css-j2pp63 div.contents div.content::text').get()
+
+                # Print the extracted information
+                features_function.append({
+                    "text": f"{title} {link}",
+                    "link": link,
+                })
+            except Exception as e:
+                print(e)
+        else:
+            # If the upper element is not present, check for the lower element
+            extra_content_elements = response.css('div.extraContent *')
+            if extra_content_elements:
+                try:
+                    # Iterate over each element within the extraContent div
+                    for element in extra_content_elements:
+                        temp = {}
+                        # Extract text and link if available
+                        # text = element.css('::text').get()
+                        link = element.css('a::attr(href)').get()
+                        image_link = element.css('img::attr(src)').get()
+                        text = element.css('img::attr(alt)').get()
+
+                        # Check if the image link is not already seen
+                        if image_link not in image_links_seen:
+                            # Print the extracted text and link
+                            if text:
+                                # print("Text:", text.strip())
+                                temp['text'] = text.strip()
+                            if link:
+                                # print("Link:", link)
+                                temp['link'] = link
+                            if image_link:
+                                # print("Image link:", image_link)
+                                temp['image_link'] = image_link
+                                image_links_seen.add(image_link)
+                            if temp:
+                                features_function.append(temp)
+                except Exception as e:
+                    print(e)
+        return features_function
