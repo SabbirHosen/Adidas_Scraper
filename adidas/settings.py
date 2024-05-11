@@ -12,7 +12,6 @@ BOT_NAME = "adidas"
 SPIDER_MODULES = ["adidas.spiders"]
 NEWSPIDER_MODULE = "adidas.spiders"
 
-
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = "adidas (+http://www.yourdomain.com)"
 
@@ -50,9 +49,9 @@ ROBOTSTXT_OBEY = True
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-DOWNLOADER_MIDDLEWARES = {
-   "adidas.middlewares.RotateUserAgentMiddleware": 543,
-}
+# DOWNLOADER_MIDDLEWARES = {
+#     "adidas.middlewares.RotateUserAgentMiddleware": 543,
+# }
 
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
@@ -101,4 +100,12 @@ PLAYWRIGHT_BROWSER_TYPE = "chromium"
 PLAYWRIGHT_LAUNCH_OPTIONS = {
     "headless": False,
     # "timeout": 20 * 1000,  # 20 seconds
+}
+PLAYWRIGHT_CONTEXTS = {
+    "default": {
+        "viewport": {
+            "width": 1920,
+            "height": 1080,
+        },
+    }
 }
