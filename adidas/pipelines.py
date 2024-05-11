@@ -25,7 +25,9 @@ class ExcelWriterPipeline:
         self.product_data = []
 
     def process_item(self, item, spider):
+        product_id = item['product_url'].split("/")[-2]
         product_data = {
+            'product_id': product_id,
             'Product Title': item['product_title'],
             'product_url': item['product_url'],
             'Product Category': item['product_category'],
@@ -39,14 +41,14 @@ class ExcelWriterPipeline:
         }
         self.product_data.append(product_data)
 
-        size_chart_data = [{'Product Title': item['product_title'], 'Size': size, **measurements} for size, measurements
+        size_chart_data = [{'product_id': product_id, 'Size': size, **measurements} for size, measurements
                            in item['size_chart'].items()]
         self.size_chart_data.extend(size_chart_data)
 
-        review_data = [{'Product Title': item['product_title'], **review} for review in item['reviews']]
+        review_data = [{'product_id': product_id, **review} for review in item['reviews']]
         self.review_data.extend(review_data)
 
-        coordinate_data = [{'Product Title': item['product_title'], **coordinate} for coordinate in
+        coordinate_data = [{'product_id': product_id, **coordinate} for coordinate in
                            item['coordinate_value']]
         self.coordinate_data.extend(coordinate_data)
 
@@ -58,7 +60,7 @@ class ExcelWriterPipeline:
         review_df = pd.DataFrame(self.review_data)
         coordinate_df = pd.DataFrame(self.coordinate_data)
 
-        with pd.ExcelWriter('product_data1.xlsx') as writer:
+        with pd.ExcelWriter('product_data.xlsx') as writer:
             product_df.to_excel(writer, sheet_name='Product Details', index=False)
             size_chart_df.to_excel(writer, sheet_name='Size Chart', index=False)
             review_df.to_excel(writer, sheet_name='Reviews', index=False)

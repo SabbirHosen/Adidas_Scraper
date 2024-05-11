@@ -36,12 +36,19 @@ fake_browser_header = {
 }
 
 
-class AdidasscraperSpider(scrapy.Spider):
+class AdidasScraperSpider(scrapy.Spider):
+    """
+    Spider for scraping Adidas product information from the official website.
+    """
+
     name = "adidasscraper"
     allowed_domains = ["shop.adidas.jp"]
     base_url = "https://shop.adidas.jp"
 
     def start_requests(self):
+        """
+        Start requests to fetch the initial product listing page.
+        """
         url = "https://shop.adidas.jp/item/?gender=mens&order=1&category=wear"
 
         meta_data = {
@@ -58,10 +65,8 @@ class AdidasscraperSpider(scrapy.Spider):
 
     async def parse(self, response, **kwargs):
         """
-
-        :param response:
-        :param kwargs:
-        :return:
+        Parse the product listing page to extract product details and navigate to subsequent pages by getting pagination
+        information from the product listing page.
         """
         page = response.meta["playwright_page"]
         try:
@@ -89,13 +94,15 @@ class AdidasscraperSpider(scrapy.Spider):
                     ))
             else:
                 yield self.extract_items(response=response)
-            # print("-" * 100)
         except Exception as e:
             print(e)
         finally:
             page.close()
 
     async def extract_items(self, response, **kwargs):
+        """
+        Extract product items url from the product listing page.
+        """
         meta_data = {
             'playwright': True,
             'playwright_include_page': True,
@@ -103,29 +110,29 @@ class AdidasscraperSpider(scrapy.Spider):
                 PageMethod("wait_for_selector", "div.inner"),
                 PageMethod("wait_for_timeout", 10000),
                 PageMethod("evaluate", """
-                                                        async () => {
-                                                            await new Promise(resolve => {
-                                                                let totalHeight = 0;
-                                                                const distance = 10;
-                                                                const timer = setInterval(() => {
-                                                                    const scrollHeight = document.body.scrollHeight;
-                                                                    window.scrollBy(0, distance);
-                                                                    totalHeight += distance;
-                                                                    if (totalHeight >= scrollHeight) {
-                                                                        clearInterval(timer);
-                                                                        resolve();
-                                                                    }
-                                                                }, 100);  // Adjust scrolling speed as needed
-                                                            });
-                                                        }
-                                                    """),
+                    async () => {
+                        await new Promise(resolve => {
+                            let totalHeight = 0;
+                            const distance = 10;
+                            const timer = setInterval(() => {
+                                const scrollHeight = document.body.scrollHeight;
+                                window.scrollBy(0, distance);
+                                totalHeight += distance;
+                                if (totalHeight >= scrollHeight) {
+                                    clearInterval(timer);
+                                    resolve();
+                                }
+                            }, 100);  // Adjust scrolling speed as needed
+                        });
+                    }
+                """),
                 PageMethod("wait_for_timeout", 20000)
             ],
             'errback': self.errback,
         }
         page = response.meta["playwright_page"]
         try:
-            print("Items scarping for url {0}".format(response.url))
+            print("Items scraping for URL: {0}".format(response.url))
             for i in range(5):  # make the range as long as needed
                 await page.mouse.wheel(0, 1500)
                 time.sleep(2)
@@ -148,15 +155,16 @@ class AdidasscraperSpider(scrapy.Spider):
             await page.close()
 
     async def extract_product_information(self, response, **kwargs):
+        """
+        Extract detailed product information from the product details page.
+        """
         item = AdidasProductItem()
         page = response.meta["playwright_page"]
         print("-" * 100)
         try:
-            print("Items scarping for url {0}".format(response.url))
+            print("Items scraping for URL: {0}".format(response.url))
 
             page_content = await page.content()
-            # with open("detailsIS15401.html", "w") as f:
-            #     f.write(page_content)
             coordinate_info = await self.extract_coordinate(page=page)
 
             content = scrapy.Selector(text=page_content)
@@ -197,6 +205,8 @@ class AdidasscraperSpider(scrapy.Spider):
             item["description_title"] = description_title
             item["general_description"] = general_description
             item["item_description"] = item_description
+
+
             item["size_chart"] = size_chart
             item["rating"] = rating
             item["number_of_reviews"] = number_of_review
@@ -213,10 +223,16 @@ class AdidasscraperSpider(scrapy.Spider):
             await page.close()
 
     async def errback(self, failure):
+        """
+        Handle errors during the scraping process.
+        """
         page = failure.request.meta["playwright_page"]
         await page.close()
 
     async def extract_price(self, page, response, **kwargs):
+        """
+        Extract the price of the product from the page content.
+        """
         style_before = await page.evaluate(
             '(function() { return window.getComputedStyle(document.querySelector(".articlePrice .price-text .price-value"), ":before").getPropertyValue("content"); })()')
         style_after = await page.evaluate(
@@ -226,6 +242,9 @@ class AdidasscraperSpider(scrapy.Spider):
         return price
 
     async def extract_coordinate(self, page):
+        """
+        Extract coordinate information from the page.
+        """
         coordinate_div = await page.query_selector('.coordinate_inner')
         coordinate_items = []
 
@@ -234,7 +253,6 @@ class AdidasscraperSpider(scrapy.Spider):
 
             # Click each li element
             for li in li_elements:
-                # print(li)
                 await li.click()
                 time.sleep(5)
                 page_content = await page.content()
@@ -254,21 +272,25 @@ class AdidasscraperSpider(scrapy.Spider):
 
     async def extract_breadcrumbs(self, response):
         """
-        process the breadcrumbs div and extract the breadcrumb string
-        :param response: Selector containing page response
-        :return:
+        Extract breadcrumbs from the page response.
         """
         breadcrumb_div = response.css("div.breadcrumb_wrap")
         text = " / ".join(breadcrumb_div.css("ul.breadcrumbList li:not(.back) a::text").getall())
         return text
 
     async def extract_image_urls(self, response):
+        """
+        Extract image URLs from the page response.
+        """
         image_content_div = response.css("div.pdp_article_image")
         paths = image_content_div.css("div.pdp_article_image div.article_image_wrapper img::attr(src)").getall()
         urls = [f"{self.base_url}{path}" for path in paths]
         return urls
 
     async def extract_ratings(self, response):
+        """
+        Extract ratings from the page response.
+        """
         try:
             review_rating_dict = {}
             review_ratings = response.css("div.BVRRSecondaryRatingsContainer div.BVRRRatingEntry")
@@ -283,30 +305,22 @@ class AdidasscraperSpider(scrapy.Spider):
             return None
 
     async def extract_reviews(self, response):
+        """
+        Extract reviews information from the page response.
+        """
         try:
             reviews = []
             review_elements = response.css("div.BVRRContentReview")
-            # print(review_elements)
             if review_elements:
                 for review_element in review_elements:
-                    # Extract review date
                     review_date = review_element.css("div.BVRRReviewDateContainer *::text").getall()
-
-                    # Extract review rating
                     review_rating = review_element.xpath('.//span[@class="BVRRNumber BVRRRatingNumber"]/text()').get()
-
-                    # Extract review title
                     review_title = review_element.xpath('.//span[@class="BVRRValue BVRRReviewTitle"]/text()').get()
-
-                    # Extract review description
                     review_description = review_element.xpath(
                         './/div[@class="BVRRReviewText"]/descendant::*/text()').getall()
                     review_description = ' '.join(review_description).strip()
-
-                    # Extract reviewer ID
                     reviewer_id = review_element.xpath('.//span[@class="BVRRNickname"]/text()').get()
 
-                    # Print or store the extracted information
                     data = {
                         'Date': review_date,
                         'Rating': review_rating,
@@ -321,32 +335,23 @@ class AdidasscraperSpider(scrapy.Spider):
             return None
 
     async def extract_size_chart(self, response):
+        """
+        Extract size chart information from the page response.
+        """
         try:
-            # Extracting measurement types from the first table
             measurement_types = response.css(
                 '.sizeChartTable:first-child .sizeChartTRow:nth-child(n+2) .sizeChartTHeaderCell::text').extract()
-            # print("measurement_types", measurement_types)
-
             size_table = response.css('.sizeChartTable:last-child')
-
-            # Extract all rows from the table
             rows = size_table.css('tr.sizeChartTRow')
-
-            # Initialize a list to store row data
             row_data = []
 
-            # Loop through each row and extract cell data
             for row in rows:
-                # Extract cell data from each row
                 cells = row.css('td.sizeChartTCell span::text').extract()
-                # Append cell data to row_data list
                 row_data.append(cells)
 
-            # Initialize an empty dictionary to store the combined data
             combined_data = {}
             sizes = row_data[0]
             measurements = [data for data in zip(*row_data[1:])]
-            # Iterate over both lists simultaneously
             for size, measurement in zip(sizes, measurements):
                 temp = {}
                 for index, measurement_type in enumerate(measurement_types):
@@ -357,20 +362,18 @@ class AdidasscraperSpider(scrapy.Spider):
             print(e)
 
     async def extract_sense_of_size(self, response):
+        """
+        Extract sense of size information from the page response.
+        """
         sense_size_div = response.css("div.sizeFitBar")
         if sense_size_div:
             size_senses = response.css("div.sizeFitBar *::text").getall()
             element = sense_size_div.css('div.bar span')
             rating = 0
 
-            # If the element is found, extract the class attribute
             if element:
                 class_attribute = element.attrib['class']
-
-                # Extract the number from the class attribute using regular expressions
                 match = re.search(r'mod-marker_(\d+\_\d+)', class_attribute)
-
-                # If there is a match, extract the number
                 if match:
                     rating = match.group(1)
                 sense_of_the_size = {
@@ -380,16 +383,17 @@ class AdidasscraperSpider(scrapy.Spider):
                 return sense_of_the_size
 
     async def special_function(self, response):
+        """
+        Extract special features information from the page response.
+        """
         features_function = []
         image_links_seen = set()  # Set to store unique image links
         if response.css('.css-j2pp63'):
             try:
-                # If the element is present, grab the text and link
                 title = response.css('.css-j2pp63 h3.title::text').get()
                 link = response.css('.css-j2pp63 div.contents div.content a.tecTextTitle::attr(href)').get()
                 text = response.css('.css-j2pp63 div.contents div.content::text').get()
 
-                # Print the extracted information
                 features_function.append({
                     "text": f"{title} {link}",
                     "link": link,
@@ -397,30 +401,21 @@ class AdidasscraperSpider(scrapy.Spider):
             except Exception as e:
                 print(e)
         else:
-            # If the upper element is not present, check for the lower element
             extra_content_elements = response.css('div.extraContent *')
             if extra_content_elements:
                 try:
-                    # Iterate over each element within the extraContent div
                     for element in extra_content_elements:
                         temp = {}
-                        # Extract text and link if available
-                        # text = element.css('::text').get()
                         link = element.css('a::attr(href)').get()
                         image_link = element.css('img::attr(src)').get()
                         text = element.css('img::attr(alt)').get()
 
-                        # Check if the image link is not already seen
                         if image_link not in image_links_seen:
-                            # Print the extracted text and link
                             if text:
-                                # print("Text:", text.strip())
                                 temp['text'] = text.strip()
                             if link:
-                                # print("Link:", link)
                                 temp['link'] = link
                             if image_link:
-                                # print("Image link:", image_link)
                                 temp['image_link'] = image_link
                                 image_links_seen.add(image_link)
                             if temp:
