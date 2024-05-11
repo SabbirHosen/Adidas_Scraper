@@ -1,4 +1,5 @@
 import json
+import re
 
 from scrapy import Selector
 
@@ -131,7 +132,7 @@ def extract_rating(response):
     return review_rating_dict
 
 
-with open("detailsIS1540.html", "r") as f:
+with open("detailsIS15401.html", "r") as f:
     content = Selector(text=f.read())
 # print(content.css("script#__NEXT_DATA__::text").get())
 
@@ -183,3 +184,27 @@ print("image link", cordinate_item_div.css("div.detail img::attr(src)").get())
 print("product title", cordinate_item_div.css("div.detail span.titleWrapper ::text").get())
 print("product price", cordinate_item_div.css("div.detail div.mdl-price ::text").get())
 print(content.css("div.coordinate_inner div.coordinate_item_container"))
+
+print(content.css("div.sizeFitBar *::text").getall())
+sense_size_div = content.css("div.sizeFitBar")
+print(sense_size_div)
+size_senses = content.css("div.sizeFitBar *::text").getall()
+element = sense_size_div.css('div.bar span')
+
+
+# If the element is found, extract the class attribute
+if element:
+    class_attribute = element.attrib['class']
+
+    # Extract the number from the class attribute using regular expressions
+    match = re.search(r'mod-marker_(\d+\_\d+)', class_attribute)
+
+    # If there is a match, extract the number
+    if match:
+        number = match.group(1)
+
+        print("Extracted number:", number)
+    else:
+        print("No match found.")
+else:
+    print("Element not found.")
