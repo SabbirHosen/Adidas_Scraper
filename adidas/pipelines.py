@@ -60,7 +60,7 @@ class ExcelWriterPipeline:
         review_df = pd.DataFrame(self.review_data)
         coordinate_df = pd.DataFrame(self.coordinate_data)
 
-        with pd.ExcelWriter('product_data.xlsx') as writer:
+        with pd.ExcelWriter('data.xlsx') as writer:
             product_df.to_excel(writer, sheet_name='Product Details', index=False)
             size_chart_df.to_excel(writer, sheet_name='Size Chart', index=False)
             review_df.to_excel(writer, sheet_name='Reviews', index=False)

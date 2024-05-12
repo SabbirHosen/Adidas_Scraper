@@ -5,6 +5,13 @@ import scrapy
 from scrapy_playwright.page import PageMethod
 from ..items import AdidasProductItem
 import random
+import logging
+logging.basicConfig(level=logging.CRITICAL,
+                    format='[%(asctime)s] {%(name)s} %(levelname)s:  %(message)s',
+                    datefmt='%y-%m-%d %H:%M:%S',
+                    filename="saved_logs.log")
+
+logger = logging.getLogger(__name__)
 
 user_agent_list = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
@@ -75,11 +82,10 @@ class AdidasScraperSpider(scrapy.Spider):
             content = scrapy.Selector(text=page_content)
 
             last_page_number = content.css("div.pageSelector li span.pageTotal::text").get()
+            await page.close()
 
             if last_page_number and last_page_number != "0" and last_page_number != "1":
                 for i in range(1, int(last_page_number)):
-                    if i == 3:
-                        break
                     next_page_url = f"{response.url}&page={i}"
 
                     yield scrapy.Request(next_page_url, callback=self.extract_items, meta=dict(
@@ -95,9 +101,9 @@ class AdidasScraperSpider(scrapy.Spider):
             else:
                 yield self.extract_items(response=response)
         except Exception as e:
-            print(e)
+            logger.error(e)
         finally:
-            page.close()
+            await page.close()
 
     async def extract_items(self, response, **kwargs):
         """
@@ -132,7 +138,7 @@ class AdidasScraperSpider(scrapy.Spider):
         }
         page = response.meta["playwright_page"]
         try:
-            print("Items scraping for URL: {0}".format(response.url))
+            logger.info("Items scraping for URL: {0}".format(response.url))
             for i in range(5):  # make the range as long as needed
                 await page.mouse.wheel(0, 1500)
                 time.sleep(2)
@@ -141,6 +147,7 @@ class AdidasScraperSpider(scrapy.Spider):
             page_content = await page.content()
             content = scrapy.Selector(text=page_content)
             cards = content.css("div.test-card a.image_link.test-image_link::attr(href)").getall()
+            await page.close()
 
             for card in cards:
                 product_details_url = self.base_url + card
@@ -148,9 +155,9 @@ class AdidasScraperSpider(scrapy.Spider):
                 yield scrapy.Request(product_details_url, headers=fake_browser_header,
                                      callback=self.extract_product_information,
                                      meta=meta_data)
-                break
+
         except Exception as e:
-            print(e)
+            logger.error(e)
         finally:
             await page.close()
 
@@ -160,9 +167,9 @@ class AdidasScraperSpider(scrapy.Spider):
         """
         item = AdidasProductItem()
         page = response.meta["playwright_page"]
-        print("-" * 100)
+        logger.info("-" * 100)
         try:
-            print("Items scraping for URL: {0}".format(response.url))
+            logger.info("Items scraping for URL: {0}".format(response.url))
 
             page_content = await page.content()
             coordinate_info = await self.extract_coordinate(page=page)
@@ -215,10 +222,11 @@ class AdidasScraperSpider(scrapy.Spider):
             item["product_ratings"] = product_ratings
             item["sense_of_the_size"] = sense_of_the_size
             item["special_function"] = special_function
+            await page.close()
 
             yield item
         except Exception as e:
-            print(e)
+            logger.error(e)
         finally:
             await page.close()
 
@@ -301,7 +309,7 @@ class AdidasScraperSpider(scrapy.Spider):
 
             return review_rating_dict
         except Exception as e:
-            print(e)
+            logger.error(e)
             return None
 
     async def extract_reviews(self, response):
@@ -331,7 +339,7 @@ class AdidasScraperSpider(scrapy.Spider):
                     reviews.append(data)
             return reviews
         except Exception as e:
-            print(e)
+            logger.error(e)
             return None
 
     async def extract_size_chart(self, response):
@@ -359,7 +367,7 @@ class AdidasScraperSpider(scrapy.Spider):
                 combined_data[size] = temp
             return combined_data
         except Exception as e:
-            print(e)
+            logger.error(e)
 
     async def extract_sense_of_size(self, response):
         """
@@ -421,5 +429,5 @@ class AdidasScraperSpider(scrapy.Spider):
                             if temp:
                                 features_function.append(temp)
                 except Exception as e:
-                    print(e)
+                    logger.error(e)
         return features_function
